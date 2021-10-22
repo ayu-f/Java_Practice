@@ -77,17 +77,20 @@ public class Manager {
         byteInput = new byte[bufferSize];
         executor = new Executor(bufferSize);
         Tmp tmp = new Tmp();
+        Tmp1 tmp1 = new Tmp1();
         int readenBytesCount = 0;
         if(mode == Grammar.Mode.ENCODE) {
             while ((readenBytesCount = reader.ReadInputFile(byteInput)) != -1) {
-                byteOutput = executor.Encode(byteInput);
+                byteOutput = executor.encode(byteInput, readenBytesCount);
+                //byteOutput = tmp1.encode(byteInput, readenBytesCount);
                 //byteOutput = tmp.compress(byteInput, readenBytesCount);
                 writer.WriteOutputFile((byteOutput));
             }
         }
         else if(mode == Grammar.Mode.DECODE){
             while((readenBytesCount = reader.ReadInputFile(byteInput)) != -1){
-                byteOutput = executor.Decode(byteInput);
+                byteOutput = executor.decode(byteInput, readenBytesCount);
+                //byteOutput = tmp1.decode(byteInput, readenBytesCount);
                 //byteOutput = tmp.decode(byteInput, readenBytesCount);
                 writer.WriteOutputFile(byteOutput);
             }

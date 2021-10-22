@@ -1,3 +1,5 @@
+import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType;
+
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
@@ -10,6 +12,7 @@ import java.util.List;
 public class Executor {
     int bufferSize;
     int dictSize;
+
     Executor(int bufferSize) {
         this.bufferSize = bufferSize;
         dictSize = bufferSize; /*******************DELETE THIS******************/
@@ -25,6 +28,112 @@ public class Executor {
         return matchStr.getBytes(StandardCharsets.UTF_8);
     }
 
+    boolean containsKeyDictK(ArrayList<ArrayList<Byte>> dictK, ArrayList<Byte> key) {
+        for (ArrayList<Byte> el : dictK) {
+            if (key.equals(el)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public byte[] encode(byte[] bytes, int byteCount) {
+        ArrayList<ArrayList<Byte>> dictK = new ArrayList<>();
+        //ArrayList<Integer> dictV = new ArrayList<>();
+        ArrayList<Byte> buffer = new ArrayList<>();
+        ArrayList<Byte> out = new ArrayList<>();
+
+        for (int i = 0; i < byteCount; i++) {
+            buffer.add(bytes[i]);
+            if (!containsKeyDictK(dictK, buffer)) {
+                byte[] tmp;
+                buffer.remove(buffer.size() - 1);
+
+                if (!dictK.contains(buffer))
+                    tmp = intToByteArray(0);
+                else
+                    tmp = intToByteArray(dictK.indexOf(buffer) + 1);
+
+
+                //if(buffer.size() > 0) {
+                    for (int j = 0; j < 4; j++) {
+                        out.add(tmp[j]);
+                    }
+                    out.add(bytes[i]);
+                //}
+
+                //dictV.add(dictK.size() + 1);
+                buffer.add(bytes[i]);
+                dictK.add(new ArrayList<Byte>(buffer));
+
+                buffer.clear();
+            }
+        }
+        if (!buffer.isEmpty()) {
+            byte[] tmp;
+            byte last = buffer.get(buffer.size() - 1);
+            buffer.remove(buffer.size() - 1);
+            if (dictK.isEmpty() || buffer.size() == 0)
+                tmp = intToByteArray(0);
+            else
+                tmp = intToByteArray(dictK.indexOf(buffer)+1);
+
+            for (int j = 0; j < 4; j++) {
+                out.add(tmp[j]);
+            }
+            out.add(last);
+        }
+
+        byte[] res = new byte[out.size()];
+        for (int j = 0; j < out.size(); j++) {
+            res[j] = out.get(j);
+        }
+        return res;
+    }
+
+    int ByteArrToInt(byte[] arr, int i) {
+        byte[] tmp = new byte[4];
+        tmp[0] = arr[i++];
+        tmp[1] = arr[i++];
+        tmp[2] = arr[i++];
+        tmp[3] = arr[i];
+
+        return ByteBuffer.wrap(tmp).getInt();
+    }
+
+    public byte[] decode(byte[] bytes, int bytesCount) {
+        ArrayList<ArrayList<Byte>> dictK = new ArrayList<>();
+        ArrayList<Byte> buf = new ArrayList<>();
+        ArrayList<Byte> out = new ArrayList<>();
+
+        for (int i = 0; i < bytesCount; i++) {
+            buf.add(bytes[i]);
+        }
+
+        for (int i = 0; i < bytesCount; i++) {
+            int pos = ByteArrToInt(bytes, i);
+            if(i == 540)
+                i = 540;
+            i = i + 4;
+            ArrayList<Byte> tmp = new ArrayList<>();
+            if(pos < 0)
+                break;
+            if(dictK.size() > pos-1 && pos != 0) {
+                tmp.addAll(dictK.get(pos - 1));
+                out.addAll(tmp);
+            }
+
+            out.add(bytes[i]);
+            tmp.add(bytes[i]);
+            dictK.add(new ArrayList<>(tmp));
+        }
+        byte[] res = new byte[out.size()];
+        for (int j = 0; j < out.size(); j++) {
+            res[j] = out.get(j);
+        }
+        return res;
+    }
+
     // encode
     // input: array of bytes, count of readen bytes
     public byte[] Encode(byte[] bytes) {
@@ -32,19 +141,13 @@ public class Executor {
 
         ArrayList<Match> match = new ArrayList<Match>();
         char[] arrChar = new String(bytes).toCharArray();
-        char[] ir = new char[bytes.length];
         ArrayList<Byte> out = new ArrayList<>();
-        //for (int i = 0; i < bytes.length; i++) {
-            //ir = Base64.getEncoder().encodeToString(bytes).toCharArray();
-            //arrChar[i] = (char) (bytes[i] & 0xFF);
-        //}
         String buffer = "";
 
         for (int i = 0; i < arrChar.length - 1 && arrChar[i] != 0; i++) {
             if (dict.containsKey(buffer + arrChar[i])) {
                 buffer += arrChar[i];
-            }
-            else {
+            } else {
                 match.add(new Match(dict.getOrDefault(buffer, 0), arrChar[i]));
 
                 byte[] tmp = intToByteArray(dict.getOrDefault(buffer, 0));
@@ -81,7 +184,7 @@ public class Executor {
         }
         byte[] res = new byte[out.size()];
         int i = 0;
-        for(Byte o : out){
+        for (Byte o : out) {
             res[i++] = o;
         }
         return MatchToByteArray(match);
@@ -146,11 +249,11 @@ public class Executor {
     }
 
     // нахождение в подстроке числа
-    int ParseInt(String str, int index){
+    int ParseInt(String str, int index) {
         String num = "";
         char s = str.charAt(index);
         int i = index;
-        while(str.charAt(i) >= '0' && str.charAt(i) <= '9'){
+        while (str.charAt(i) >= '0' && str.charAt(i) <= '9') {
             num += str.charAt(i);
             i++;
         }
@@ -161,12 +264,12 @@ public class Executor {
     ArrayList<Match> ByteArrayToMatch(byte[] bytes) {
         ArrayList<Match> match = new ArrayList<Match>();
         String matchStr = new String(bytes);
-        for (int i = 0; i < matchStr.length() - 1 && matchStr.charAt(i) != 0;) {
+        for (int i = 0; i < matchStr.length() - 1 && matchStr.charAt(i) != 0; ) {
             int lenPos = 1;
             String str = matchStr.substring(i);
             int pos = ParseInt(matchStr, i);
-            if(pos != 0)
-                lenPos = (int)(Math.log10(pos) + 1);
+            if (pos != 0)
+                lenPos = (int) (Math.log10(pos) + 1);
 
             i += lenPos;
             char next = matchStr.charAt(i);
