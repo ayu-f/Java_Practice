@@ -1,33 +1,179 @@
-import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType;
-
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
 
 public class Executor {
-    int bufferSize;
-    int dictSize;
+    int curDictSize, lenOfreadRawBytes;
+    ArrayList<Byte> rawBytes;
 
-    Executor(int bufferSize) {
-        this.bufferSize = bufferSize;
-        dictSize = bufferSize; /*******************DELETE THIS******************/
+    Executor(){
+        curDictSize = 0;
+        lenOfreadRawBytes = 0;
+        rawBytes = new ArrayList<>();
     }
 
-    // преобразования структуры match алгоритма в массив битов
-    byte[] MatchToByteArray(ArrayList<Match> match) {
-        String matchStr = "";
-        for (Match mt : match) {
-            matchStr = matchStr.concat(Integer.toString(mt.getPos()));
-            matchStr = matchStr.concat(Character.toString(mt.getNext()));
+    /**
+     * BRIEF:
+     * data compression
+     * ARGS:
+     * bytes - input array bytes
+     * byteCount - count of read bytes
+     * RETURN:
+     * compression byte array
+     */
+    public byte[] encode(byte[] bytes, int byteCount) {
+        /* dictionary of bytes array */
+        ArrayList<ArrayList<Byte>> dictK = new ArrayList<>();
+        ArrayList<Byte> buffer = new ArrayList<>();
+        /* list for output */
+        ArrayList<Byte> out = new ArrayList<>();
+        int countOfBlockDickt = 0;
+        /* main loop */
+        for (int i = 0; i < byteCount; i++) {
+            /* add one byte to buffer */
+            buffer.add(bytes[i]);
+            /* if dictionary size larger 127 so we should clear this bcs byte can hold to 127 */
+            if(dictK.size() == 127){
+                out.add(dictK.size() * countOfBlockDickt++ , (byte)dictK.size());
+                dictK.clear();
+            }
+            /* if buffer not contains in dictionary */
+            if (!containsKeyDictK(dictK, buffer)) {
+                byte[] tmp;
+                /* remove last el, so we have longer buffer in dict */
+                buffer.remove(buffer.size() - 1);
+
+                /* get index of position buffer in dict */
+                if (!dictK.contains(buffer)) {
+                    //tmp = intToByteArray(0);
+                    out.add((byte)0);
+                }
+                else{
+                    //tmp = intToByteArray(dictK.indexOf(buffer) + 1);
+                    out.add((byte)(dictK.indexOf(buffer) + 1));
+                }
+
+                /*for (int j = 0; j < 4; j++) {
+                    out.add(tmp[j]);
+                }*/
+                /* add current byte in out */
+                out.add(bytes[i]);
+
+                /* update dictionary */
+                buffer.add(bytes[i]);
+                dictK.add(new ArrayList<Byte>(buffer));
+
+                buffer.clear();
+            }
         }
-        return matchStr.getBytes(StandardCharsets.UTF_8);
+        /* if buffer not empty => we add to buffer bytes but didnt processing at the end */
+        if (!buffer.isEmpty()) {
+            byte[] tmp;
+            byte last = buffer.get(buffer.size() - 1);
+            buffer.remove(buffer.size() - 1);
+            if (dictK.isEmpty() || buffer.size() == 0) {
+                //tmp = intToByteArray(0);
+                out.add((byte)0);
+            }
+            else {
+                out.add((byte)(dictK.indexOf(buffer) + 1));
+                //tmp = intToByteArray(dictK.indexOf(buffer) + 1);
+            }
+            /*for (int j = 0; j < 4; j++) {
+                out.add(tmp[j]);
+            }*/
+            out.add(last);
+        }
+        out.add(dictK.size() * countOfBlockDickt , (byte)dictK.size());
+
+        return ListToArrayPrim(out);
     }
 
+    void decodeLZ78(Byte[] bytes, int bytesCount, ArrayList<Byte> out){
+        int countReadBytes = 0;
+        if(curDictSize == 0){
+            curDictSize = (int)bytes[0];
+            countReadBytes = 1;
+        }
+
+
+
+        ArrayList<ArrayList<Byte>> dictK = new ArrayList<>();
+        for (int i = 0; i < bytesCount; i++) {
+            int pos = (int)bytes[i];//ByteArrToInt(bytes, i);
+            i = i+1;//i + 4;
+            if(dictK.size() == 127) {
+                dictK.clear();
+            }
+            ArrayList<Byte> tmp = new ArrayList<>();
+            if (dictK.size() > pos - 1 && pos != 0) {
+                tmp.addAll(dictK.get(pos - 1));
+                out.addAll(tmp);
+            }
+
+            out.add(bytes[i]);
+            tmp.add(bytes[i]);
+            dictK.add(new ArrayList<>(tmp));
+        }
+    }
+
+    /**
+     * BRIEF:
+     * data decompression
+     * ARGS:
+     * bytes - input array bytes
+     * byteCount - count of read bytes
+     * RETURN:
+     * decompression byte array
+     */
+    public byte[] decode(byte[] bytes, int bytesCount) {
+        ArrayList<Byte> out = new ArrayList<>();
+        Byte[] byteToDecode;
+        int countReadBytes = 0;
+
+        if(curDictSize == 0){
+            curDictSize = (int)bytes[0];
+            countReadBytes = 1;
+        }
+
+        while(countReadBytes < bytesCount) {
+            if (curDictSize - lenOfreadRawBytes > bytesCount) {
+                lenOfreadRawBytes += bytesCount;
+                for (byte b : bytes) {
+                    rawBytes.add(b);
+                }
+                countReadBytes += bytesCount;
+                return null;
+            } else {
+                for (int i = countReadBytes; i < curDictSize + countReadBytes; i++) {
+                    rawBytes.add(bytes[i]);
+                }
+                countReadBytes += curDictSize;
+                byteToDecode = new Byte[rawBytes.size()];
+                rawBytes.toArray(byteToDecode);
+                decodeLZ78(byteToDecode, curDictSize, out);
+                rawBytes.clear();
+
+                for (int i = bytesCount - (curDictSize - lenOfreadRawBytes); i < bytesCount; i++) {
+                    rawBytes.add(bytes[i]);
+                }
+                lenOfreadRawBytes = bytesCount - (curDictSize - lenOfreadRawBytes);
+                curDictSize = (int) bytes[curDictSize - lenOfreadRawBytes];
+            }
+        }
+
+        return ListToArrayPrim(out);
+    }
+
+    /**
+     * BRIEF:
+     * checks key is contained in the dictionary
+     * ARGS:
+     * dictK - dictionary of bytes array
+     * key - the key from the bytes array
+     * RETURN:
+     * true - key is found
+     * false - key not found
+     */
     boolean containsKeyDictK(ArrayList<ArrayList<Byte>> dictK, ArrayList<Byte> key) {
         for (ArrayList<Byte> el : dictK) {
             if (key.equals(el)) {
@@ -37,61 +183,29 @@ public class Executor {
         return false;
     }
 
-    public byte[] encode(byte[] bytes, int byteCount) {
-        ArrayList<ArrayList<Byte>> dictK = new ArrayList<>();
-        //ArrayList<Integer> dictV = new ArrayList<>();
-        ArrayList<Byte> buffer = new ArrayList<>();
-        ArrayList<Byte> out = new ArrayList<>();
-
-        for (int i = 0; i < byteCount; i++) {
-            buffer.add(bytes[i]);
-            if (!containsKeyDictK(dictK, buffer)) {
-                byte[] tmp;
-                buffer.remove(buffer.size() - 1);
-
-                if (!dictK.contains(buffer))
-                    tmp = intToByteArray(0);
-                else
-                    tmp = intToByteArray(dictK.indexOf(buffer) + 1);
-
-
-                //if(buffer.size() > 0) {
-                    for (int j = 0; j < 4; j++) {
-                        out.add(tmp[j]);
-                    }
-                    out.add(bytes[i]);
-                //}
-
-                //dictV.add(dictK.size() + 1);
-                buffer.add(bytes[i]);
-                dictK.add(new ArrayList<Byte>(buffer));
-
-                buffer.clear();
-            }
-        }
-        if (!buffer.isEmpty()) {
-            byte[] tmp;
-            byte last = buffer.get(buffer.size() - 1);
-            buffer.remove(buffer.size() - 1);
-            if (dictK.isEmpty() || buffer.size() == 0)
-                tmp = intToByteArray(0);
-            else
-                tmp = intToByteArray(dictK.indexOf(buffer)+1);
-
-            for (int j = 0; j < 4; j++) {
-                out.add(tmp[j]);
-            }
-            out.add(last);
-        }
-
-        byte[] res = new byte[out.size()];
-        for (int j = 0; j < out.size(); j++) {
-            res[j] = out.get(j);
+    /**
+     * BRIEF:
+     * ArrayList of bytes to byte[]
+     * ARGS:
+     * arr - ArrayList bytes
+     * RETURN:
+     * res - output byte[]
+     */
+    private byte[] ListToArrayPrim(ArrayList<Byte> arr){
+        byte[] res = new byte[arr.size()];
+        for (int j = 0; j < arr.size(); j++) {
+            res[j] = arr.get(j);
         }
         return res;
     }
 
-    int ByteArrToInt(byte[] arr, int i) {
+    /**
+     * BRIEF:
+     * two last methods only for write to output key of int insted byte (dictionary size may be larger size of byte)
+     * first - byte array to int number
+     * second - int number to byte array 4 size
+     */
+    private int ByteArrToInt(byte[] arr, int i) {
         byte[] tmp = new byte[4];
         tmp[0] = arr[i++];
         tmp[1] = arr[i++];
@@ -101,145 +215,7 @@ public class Executor {
         return ByteBuffer.wrap(tmp).getInt();
     }
 
-    public byte[] decode(byte[] bytes, int bytesCount) {
-        ArrayList<ArrayList<Byte>> dictK = new ArrayList<>();
-        ArrayList<Byte> buf = new ArrayList<>();
-        ArrayList<Byte> out = new ArrayList<>();
-
-        for (int i = 0; i < bytesCount; i++) {
-            buf.add(bytes[i]);
-        }
-
-        for (int i = 0; i < bytesCount; i++) {
-            int pos = ByteArrToInt(bytes, i);
-            if(i == 540)
-                i = 540;
-            i = i + 4;
-            ArrayList<Byte> tmp = new ArrayList<>();
-            if(pos < 0)
-                break;
-            if(dictK.size() > pos-1 && pos != 0) {
-                tmp.addAll(dictK.get(pos - 1));
-                out.addAll(tmp);
-            }
-
-            out.add(bytes[i]);
-            tmp.add(bytes[i]);
-            dictK.add(new ArrayList<>(tmp));
-        }
-        byte[] res = new byte[out.size()];
-        for (int j = 0; j < out.size(); j++) {
-            res[j] = out.get(j);
-        }
-        return res;
-    }
-
-    // encode
-    // input: array of bytes, count of readen bytes
-    public byte[] Encode(byte[] bytes) {
-        HashMap<String, Integer> dict = new HashMap<String, Integer>(dictSize);
-
-        ArrayList<Match> match = new ArrayList<Match>();
-        char[] arrChar = new String(bytes).toCharArray();
-        ArrayList<Byte> out = new ArrayList<>();
-        String buffer = "";
-
-        for (int i = 0; i < arrChar.length - 1 && arrChar[i] != 0; i++) {
-            if (dict.containsKey(buffer + arrChar[i])) {
-                buffer += arrChar[i];
-            } else {
-                match.add(new Match(dict.getOrDefault(buffer, 0), arrChar[i]));
-
-                byte[] tmp = intToByteArray(dict.getOrDefault(buffer, 0));
-                for (int j = 0; j < 4; j++) {
-                    out.add(tmp[j]);
-                }
-                //byte tmp1 = (byte)arrChar[i];
-                //out.add(tmp1);
-
-                ByteBuffer b = ByteBuffer.allocate(2);
-                b.putChar(arrChar[i]);
-                tmp = b.array();
-                out.add(tmp[0]);
-                out.add(tmp[1]);
-
-                dict.put(buffer + arrChar[i], dict.size() + 1);
-                buffer = "";
-            }
-        }
-        if (buffer.length() > 1) {
-            char last_ch = buffer.charAt(buffer.length() - 1);
-            match.add(new Match(dict.getOrDefault(buffer.substring(0, buffer.length() - 1), 0), last_ch));
-
-            byte[] tmp = intToByteArray(dict.getOrDefault(buffer.substring(0, buffer.length() - 1), 0));
-            for (int j = 0; j < 4; j++) {
-                out.add(tmp[j]);
-            }
-
-            ByteBuffer b = ByteBuffer.allocate(2);
-            b.putChar(last_ch);
-            tmp = b.array();
-            out.add(tmp[0]);
-            out.add(tmp[1]);
-        }
-        byte[] res = new byte[out.size()];
-        int i = 0;
-        for (Byte o : out) {
-            res[i++] = o;
-        }
-        return MatchToByteArray(match);
-    }
-
-    /*void IntToBytes(int i, ArrayList<Byte> bytes){
-        bytes.add((byte) (i >> 24));
-        bytes.add((byte) (i >> 16));
-        bytes.add((byte) (i >> 8));
-        bytes.add((byte) (i));
-
-        byte[] result = new byte[4];
-        result[0] = (byte) (i >> 24);
-        result[1] = (byte) (i >> 16);
-        result[2] = (byte) (i >> 8);
-        result[3] = (byte) (i);
-        int m = ByteBuffer.wrap(result).getInt();
-    }
-
-    public Byte[] Encode(byte[] bytes, int countReadenBytes) {
-        HashMap<String, Integer> dict = new HashMap<String, Integer>();
-        HashMap<ArrayList<Byte>, Integer> dict1 = new HashMap<ArrayList<Byte>, Integer>();
-
-        ArrayList<Match> match = new ArrayList<Match>();
-        //char[] arrChar = new String(bytes).toCharArray();
-        ArrayList<Byte> buffer = new ArrayList<Byte>();
-        ArrayList<Byte> out = new ArrayList<Byte>();
-
-        for (int i = 0; i < bytes.length - 1 && bytes[i] != 0; i++) {
-            buffer.add(bytes[i]);
-            if (dict1.containsKey(buffer)) {
-                //buffer.add(bytes[i]);
-            }
-            else {
-                buffer.remove(buffer.size()-1);
-                //match.add(new Match(dict1.getOrDefault(buffer, 0), bytes[i]));
-                IntToBytes(dict1.getOrDefault(buffer, 0), out);
-                out.add(bytes[i]);
-                dict1.put(buffer, dict.size() + 1);
-                buffer.clear();
-                //buffer = "";
-            }
-        }
-        if (buffer.size() > 1) {
-            byte last_bt = buffer.get(buffer.size() - 1);
-            buffer.remove(buffer.size() - 1);
-            //match.add(new Match(dict1.getOrDefault(buffer, 0), last_bt));
-            IntToBytes(dict1.getOrDefault(buffer, 0), out);
-            out.add(last_bt);
-        }
-
-        return out.;//MatchToByteArray(match);
-    }*/
-
-    public byte[] intToByteArray(int data) {
+    private byte[] intToByteArray(int data) {
         byte[] result = new byte[4];
         result[0] = (byte) ((data & 0xFF000000) >> 24);
         result[1] = (byte) ((data & 0x00FF0000) >> 16);
@@ -248,48 +224,4 @@ public class Executor {
         return result;
     }
 
-    // нахождение в подстроке числа
-    int ParseInt(String str, int index) {
-        String num = "";
-        char s = str.charAt(index);
-        int i = index;
-        while (str.charAt(i) >= '0' && str.charAt(i) <= '9') {
-            num += str.charAt(i);
-            i++;
-        }
-
-        return Integer.parseInt(num);
-    }
-
-    ArrayList<Match> ByteArrayToMatch(byte[] bytes) {
-        ArrayList<Match> match = new ArrayList<Match>();
-        String matchStr = new String(bytes);
-        for (int i = 0; i < matchStr.length() - 1 && matchStr.charAt(i) != 0; ) {
-            int lenPos = 1;
-            String str = matchStr.substring(i);
-            int pos = ParseInt(matchStr, i);
-            if (pos != 0)
-                lenPos = (int) (Math.log10(pos) + 1);
-
-            i += lenPos;
-            char next = matchStr.charAt(i);
-            match.add(new Match(pos, next));
-            i++;
-        }
-        return match;
-    }
-
-    public byte[] Decode(byte[] bytes) {
-        ArrayList<String> dict = new ArrayList<>();
-        ArrayList<Match> match = ByteArrayToMatch(bytes);
-        dict.add("");
-        String ans = "";
-
-        for (Match mt : match) {
-            String word = dict.get(mt.getPos()) + mt.getNext();
-            ans = ans.concat(word);
-            dict.add(word);
-        }
-        return ans.getBytes(StandardCharsets.UTF_8);
-    }
 }
