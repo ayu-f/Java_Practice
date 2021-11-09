@@ -20,6 +20,14 @@ public class Reader {
         inputStream = new FileInputStream(filePath);
     }
 
+    /**
+     * BRIEF:
+     * read input file
+     * ARGS:
+     * arrByte - array to reading the bytes
+     * RETURN:
+     * count of read bytes
+     */
     public int ReadInputFile(byte[] arrByte){
         int isRead = -1;
         try {
@@ -28,6 +36,7 @@ public class Reader {
             return isRead;
         }
         catch (IOException ex){
+            Error.UpdError(Error.ErrorCode.READ_ERROR);
             logger.log(Level.SEVERE, Log.LogItems.LOG_FAILED_TO_READ.getTitle());
         }
         return isRead;

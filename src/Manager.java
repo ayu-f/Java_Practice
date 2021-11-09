@@ -110,7 +110,7 @@ public class Manager {
 
         byteInput = new byte[bufferSize];
         executor = new Executor();
-        int readenBytesCount = 0;
+        int readenBytesCount = 0, i = 0;
         if(mode == Grammar.Mode.ENCODE) {
             while ((readenBytesCount = reader.ReadInputFile(byteInput)) != -1) {
                 byteOutput = executor.encode(byteInput, readenBytesCount);
@@ -123,6 +123,7 @@ public class Manager {
             while((readenBytesCount = reader.ReadInputFile(byteInput)) != -1){
                 byteOutput = executor.decode(byteInput, readenBytesCount);
                 writer.WriteOutputFile(byteOutput);
+                i++;
                 if(Error.errNo != Error.ErrorCode.NO_ERROR)
                     return;
             }

@@ -10,8 +10,11 @@ public class Configer {
     final String configPath;
     Logger logger;
     String mode;
+    /** name if input file*/
     String inputFile;
+    /** name if output file*/
     String outputFile;
+    /** buffer size*/
     String bufferSize;
 
     Configer(String configPath, Logger logger){
@@ -20,8 +23,16 @@ public class Configer {
 
         mode = inputFile = outputFile = bufferSize = null;
     }
-    // чтение конфига и синтаксическая проверка параметров
-    public boolean ReadConfig(){
+
+    /**
+     * BRIEF:
+     * read config file
+     * ARGS:
+     * None
+     * RETURN:
+     * None
+     */
+    public void ReadConfig(){
         try {
             BufferedReader bufRead = new BufferedReader(new FileReader(configPath));
             String readLine;
@@ -29,6 +40,7 @@ public class Configer {
             while((readLine = bufRead.readLine()) != null){
                 String[] elems = readLine.split(Grammar.Info.separator.getType());
 
+                /** check left param in config file */
                 if(elems.length == 2){
                     if(elems[0].trim().equalsIgnoreCase(Grammar.Info.inputFile.getType())){
                         inputFile = elems[1].trim();
@@ -43,26 +55,30 @@ public class Configer {
                         mode = elems[1].trim();
                     }
                     else{
+                        Error.UpdError(Error.ErrorCode.CONFIG_ERROR);
                         logger.log(Level.SEVERE, Log.LogItems.LOG_CONFIG_GRAMMAR_ERROR.getTitle());
-                        return false;
+                        return;
                     }
                 }
                 else{
+                    Error.UpdError(Error.ErrorCode.CONFIG_ERROR);
                     logger.log(Level.SEVERE, Log.LogItems.LOG_CONFIG_GRAMMAR_ERROR.getTitle());
-                    return false;
+                    return;
                 }
             }
 
-            if(inputFile == null || outputFile == null || bufferSize == null || mode == null)
+            if(inputFile == null || outputFile == null || bufferSize == null || mode == null) {
                 logger.log(Level.SEVERE, Log.LogItems.LOG_CONFIG_GRAMMAR_ERROR.getTitle());
+                Error.UpdError(Error.ErrorCode.CONFIG_ERROR);
+            }
 
             bufRead.close();
         }
         catch (IOException ex){
+            Error.UpdError(Error.ErrorCode.CONFIG_ERROR);
             logger.log(Level.SEVERE, Log.LogItems.LOG_FAILED_TO_READ.getTitle());
-            return false;
+            return;
         }
-        return true;
     }
 
 }

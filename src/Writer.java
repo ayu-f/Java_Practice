@@ -1,4 +1,3 @@
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -21,13 +20,22 @@ public class Writer {
         outputStream = new FileOutputStream(filePath);
     }
 
-    public boolean WriteOutputFile(byte[] arrByte) {
+    /**
+     * BRIEF:
+     * write output file
+     * ARGS:
+     * arrByte - array to reading the bytes
+     * RETURN:
+     * None
+     */
+    public void WriteOutputFile(byte[] arrByte) {
+        if(arrByte == null)
+            return;
         try {
             outputStream.write(arrByte, 0, arrByte.length);
-            return true;
         } catch (IOException ex) {
+            Error.UpdError(Error.ErrorCode.WRITE_ERROR);
             logger.log(Level.SEVERE, Log.LogItems.LOG_FAILED_TO_WRITE.getTitle());
         }
-        return false;
     }
 }

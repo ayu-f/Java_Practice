@@ -2,12 +2,14 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 public class Executor {
-    int curDictSize, lenOfreadRawBytes;
-    ArrayList<Byte> rawBytes;
+    // for decompress
+    int curDictSize; // current dictionary size
+    ArrayList<Byte> rawBytes; // unprocessed bytes
+    int countReadBytes; // count of read and processed bytes (index of begin new block to decompress)
 
-    Executor(){
+    Executor() {
         curDictSize = 0;
-        lenOfreadRawBytes = 0;
+        countReadBytes = 0;
         rawBytes = new ArrayList<>();
     }
 
@@ -26,14 +28,16 @@ public class Executor {
         ArrayList<Byte> buffer = new ArrayList<>();
         /* list for output */
         ArrayList<Byte> out = new ArrayList<>();
-        int countOfBlockDickt = 0;
+        int endBlock = 0, countOfBlockDickt = 0;
         /* main loop */
         for (int i = 0; i < byteCount; i++) {
             /* add one byte to buffer */
             buffer.add(bytes[i]);
             /* if dictionary size larger 127 so we should clear this bcs byte can hold to 127 */
-            if(dictK.size() == 127){
-                out.add(dictK.size() * countOfBlockDickt++ , (byte)dictK.size());
+            if (dictK.size() == 10) {
+                int a = dictK.size();
+                out.add(endBlock, (byte) (dictK.size()));
+                endBlock = out.size();
                 dictK.clear();
             }
             /* if buffer not contains in dictionary */
@@ -45,11 +49,10 @@ public class Executor {
                 /* get index of position buffer in dict */
                 if (!dictK.contains(buffer)) {
                     //tmp = intToByteArray(0);
-                    out.add((byte)0);
-                }
-                else{
+                    out.add((byte) 0);
+                } else {
                     //tmp = intToByteArray(dictK.indexOf(buffer) + 1);
-                    out.add((byte)(dictK.indexOf(buffer) + 1));
+                    out.add((byte) (dictK.indexOf(buffer) + 1));
                 }
 
                 /*for (int j = 0; j < 4; j++) {
@@ -65,17 +68,18 @@ public class Executor {
                 buffer.clear();
             }
         }
-        /* if buffer not empty => we add to buffer bytes but didnt processing at the end */
+        /* if buffer not empty => we add to buffer bytes but didn't process at the end */
         if (!buffer.isEmpty()) {
             byte[] tmp;
             byte last = buffer.get(buffer.size() - 1);
             buffer.remove(buffer.size() - 1);
             if (dictK.isEmpty() || buffer.size() == 0) {
                 //tmp = intToByteArray(0);
-                out.add((byte)0);
-            }
-            else {
-                out.add((byte)(dictK.indexOf(buffer) + 1));
+                out.add((byte) 0);
+                dictK.add(new ArrayList<Byte>(new ArrayList<Byte>(0)));
+            } else {
+                out.add((byte) (dictK.indexOf(buffer) + 1));
+                dictK.add(new ArrayList<Byte>(buffer));
                 //tmp = intToByteArray(dictK.indexOf(buffer) + 1);
             }
             /*for (int j = 0; j < 4; j++) {
@@ -83,27 +87,19 @@ public class Executor {
             }*/
             out.add(last);
         }
-        out.add(dictK.size() * countOfBlockDickt , (byte)dictK.size());
+        out.add(endBlock, (byte) dictK.size());
 
         return ListToArrayPrim(out);
     }
-
-    void decodeLZ78(Byte[] bytes, int bytesCount, ArrayList<Byte> out){
-        int countReadBytes = 0;
-        if(curDictSize == 0){
-            curDictSize = (int)bytes[0];
-            countReadBytes = 1;
-        }
-
-
-
+    /**
+     * algorithm lz78
+     */
+    ArrayList<Byte> decodeLZ78(byte[] bytes, int bytesCount) {
+        ArrayList<Byte> out = new ArrayList<>();
         ArrayList<ArrayList<Byte>> dictK = new ArrayList<>();
-        for (int i = 0; i < bytesCount; i++) {
-            int pos = (int)bytes[i];//ByteArrToInt(bytes, i);
-            i = i+1;//i + 4;
-            if(dictK.size() == 127) {
-                dictK.clear();
-            }
+        for (int i = countReadBytes + 1; i < bytes.length - 1; i++) {
+            int pos = (int) bytes[i];//ByteArrToInt(bytes, i);
+            i = i + 1;//i + 4;
             ArrayList<Byte> tmp = new ArrayList<>();
             if (dictK.size() > pos - 1 && pos != 0) {
                 tmp.addAll(dictK.get(pos - 1));
@@ -113,7 +109,26 @@ public class Executor {
             out.add(bytes[i]);
             tmp.add(bytes[i]);
             dictK.add(new ArrayList<>(tmp));
+            if (dictK.size() == curDictSize) {
+                countReadBytes = i + 1;
+                dictK.clear();
+                return out;
+            }
         }
+        return null;
+    }
+
+    byte[] MakeDecodeArr(byte[] bytes, int bytesCount) {
+        byte[] arr = new byte[rawBytes.size() + bytesCount];
+        int i = 0;
+        for (byte b : rawBytes) {
+            arr[i++] = b;
+        }
+        for (int j = 0; j < bytesCount; j++) {
+            arr[i++] = bytes[j];
+        }
+
+        return arr;
     }
 
     /**
@@ -127,40 +142,34 @@ public class Executor {
      */
     public byte[] decode(byte[] bytes, int bytesCount) {
         ArrayList<Byte> out = new ArrayList<>();
-        Byte[] byteToDecode;
-        int countReadBytes = 0;
+        byte[] byteToDecode;
 
-        if(curDictSize == 0){
-            curDictSize = (int)bytes[0];
-            countReadBytes = 1;
+
+        if (curDictSize == 0) {
+            curDictSize = (int) bytes[0];
+            //countReadBytes = 1;
         }
-
-        while(countReadBytes < bytesCount) {
-            if (curDictSize - lenOfreadRawBytes > bytesCount) {
-                lenOfreadRawBytes += bytesCount;
-                for (byte b : bytes) {
-                    rawBytes.add(b);
-                }
-                countReadBytes += bytesCount;
-                return null;
-            } else {
-                for (int i = countReadBytes; i < curDictSize + countReadBytes; i++) {
-                    rawBytes.add(bytes[i]);
-                }
-                countReadBytes += curDictSize;
-                byteToDecode = new Byte[rawBytes.size()];
-                rawBytes.toArray(byteToDecode);
-                decodeLZ78(byteToDecode, curDictSize, out);
+        ArrayList<Byte> tmpOut;
+        byteToDecode = MakeDecodeArr(bytes, bytesCount);
+        do {
+            if ((tmpOut = decodeLZ78(byteToDecode, bytesCount)) == null) {
                 rawBytes.clear();
-
-                for (int i = bytesCount - (curDictSize - lenOfreadRawBytes); i < bytesCount; i++) {
-                    rawBytes.add(bytes[i]);
+                for (int i = countReadBytes; i < byteToDecode.length; i++) {
+                    rawBytes.add(byteToDecode[i]);
                 }
-                lenOfreadRawBytes = bytesCount - (curDictSize - lenOfreadRawBytes);
-                curDictSize = (int) bytes[curDictSize - lenOfreadRawBytes];
+            } else {
+                out.addAll(tmpOut);
+                if (countReadBytes == byteToDecode.length)
+                    curDictSize = 0;
+                else
+                    curDictSize = (int) byteToDecode[countReadBytes];
+                rawBytes.clear();
+                for (int i = countReadBytes; i < byteToDecode.length; i++) {
+                    rawBytes.add(byteToDecode[i]);
+                }
             }
-        }
-
+        } while (tmpOut != null);
+        countReadBytes = 0;
         return ListToArrayPrim(out);
     }
 
@@ -191,7 +200,7 @@ public class Executor {
      * RETURN:
      * res - output byte[]
      */
-    private byte[] ListToArrayPrim(ArrayList<Byte> arr){
+    private byte[] ListToArrayPrim(ArrayList<Byte> arr) {
         byte[] res = new byte[arr.size()];
         for (int j = 0; j < arr.size(); j++) {
             res[j] = arr.get(j);
@@ -201,7 +210,7 @@ public class Executor {
 
     /**
      * BRIEF:
-     * two last methods only for write to output key of int insted byte (dictionary size may be larger size of byte)
+     * two last methods only for write to output key of int instead byte (dictionary size may be larger size of byte)
      * first - byte array to int number
      * second - int number to byte array 4 size
      */
