@@ -1,0 +1,8 @@
+input_file = configs\code2.txt
+output_file = configs\code3.txt
+reader_config_file = configs\reader_cfg.txt
+writer_config_file = configs\writer_cfg.txt
+executor_config_file = configs\executor_cfg_GR.txt
+reader_class = Reader
+writer_class = Writer
+executor_class = maloxit.Pipeline.Executor

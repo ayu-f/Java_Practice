@@ -1,0 +1,14 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="ConfigReader:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/ConfigReader_jar</output-path>
+    <root id="archive" name="ConfigReader.jar">
+      <element id="module-output" name="ConfigReader" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../PipelineInterfaces-master/out/artifacts/PipelineInterfaces_jar/PipelineInterfaces.jar" path-in-jar="/" />
+      <element id="archive" name="ConfigReader.jar">
+        <element id="directory" name="META-INF">
+          <element id="file-copy" path="$PROJECT_DIR$/out/META-INF/MANIFEST.MF" />
+        </element>
+      </element>
+    </root>
+  </artifact>
+</component>
