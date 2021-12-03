@@ -1,4 +1,0 @@
-input_file = C:\Users\aalek\IdeaProjects\lab1\fcbook.png
-output_file = C:\Users\aalek\IdeaProjects\lab1\decode.txt
-buffer_size = 10000
-mode = ENCODE

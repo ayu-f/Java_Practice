@@ -1,0 +1,8 @@
+input_file = files\code1.txt
+output_file = files\code2.txt
+reader_config_file = configs\for_reader\reader_cfg.txt
+writer_config_file = configs\for_writer\Gabdushev_WriterConfig.txt
+executors_config_file = configs\for_ex\executor_cfg_comp.txt, configs\for_ex\executor_cfg_decomp.txt
+reader_class = fayu.Reader
+writer_class = maloxit.Pipeline.Writer
+executors_classes = fayu.Executor, fayu.Executor
