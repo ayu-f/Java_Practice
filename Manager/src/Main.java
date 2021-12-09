@@ -1,12 +1,15 @@
 import com.java_polytech.pipeline_interfaces.RC;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class Main {
     public static void main(String[] args) {
-        if(args.length == 1 && args[0] != null){
-            Manager manager = new Manager();
+        if(args.length == 1){
+            Logger logger = Logger.getLogger("Pipeline:Lab3");
+            Manager manager = new Manager(logger);
             RC rc = manager.run(args[0]);
             if(!rc.isSuccess())
-                System.out.println(rc.who.get() + " : " + rc.info);
+                logger.log(Level.SEVERE, "ERROR: " + rc.who.get() + " : " + rc.info);
         }
     }
 }

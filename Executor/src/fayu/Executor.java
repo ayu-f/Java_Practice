@@ -3,13 +3,14 @@ package fayu;
 import com.java_polytech.pipeline_interfaces.*;
 import config.*;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class Executor implements IExecutor {
     public static final RC RC_EXECUTOR_PROCESS = new RC(RC.RCWho.EXECUTOR, RC.RCType.CODE_CUSTOM_ERROR, "fayu.Executor process error");
 
     private IConsumer consumer;
-    private ExecutorGrammar.Mode mode;
+    private Mode mode;
     private IProvider provider;
     private IMediator mediator;
     private final Encoder encoder = new Encoder();
@@ -18,27 +19,27 @@ public class Executor implements IExecutor {
     private TYPE currentType;
     private byte[] byteToOut;
 
+    public enum Mode{
+        ENCODE("ENCODE"),
+        DECODE("DECODE");
 
+        private final String type;
+        Mode(String type){
+            this.type = type;
+        }
+        public String GetTypeMode(){
+            return this.type;
+        }
+    }
 
     private class ExecutorGrammar extends Grammar{
-        public enum Mode{
-            ENCODE("ENCODE"),
-            DECODE("DECODE");
 
-            private final String type;
-            Mode(String type){
-                this.type = type;
-            }
-            public String GetTypeMode(){
-                return this.type;
-            }
-        }
 
         static final String mode = "mode";
 
         @Override
         protected void setGrammar() {
-            this.grammarList.addAll(List.of(mode));
+            this.grammarList.addAll(Arrays.asList(mode));
         }
     }
 
@@ -98,10 +99,10 @@ public class Executor implements IExecutor {
         byte[] bytes = (byte[])mediator.getData();
         if(bytes != null){
 
-            if(mode == ExecutorGrammar.Mode.ENCODE){
+            if(mode == Mode.ENCODE){
                 byteToOut = encoder.encode(bytes, bytes.length);
             }
-            else if(mode == ExecutorGrammar.Mode.DECODE){
+            else if(mode == Mode.DECODE){
                 byteToOut = encoder.decode(bytes, bytes.length);
             }
 
@@ -142,11 +143,11 @@ public class Executor implements IExecutor {
     }
 
     private RC checkValidMode(String mode){
-        if(mode.equalsIgnoreCase(ExecutorGrammar.Mode.ENCODE.GetTypeMode())){
-            this.mode = ExecutorGrammar.Mode.ENCODE;
+        if(mode.equalsIgnoreCase(Mode.ENCODE.GetTypeMode())){
+            this.mode = Mode.ENCODE;
         }
-        else if(mode.equalsIgnoreCase(ExecutorGrammar.Mode.DECODE.GetTypeMode())){
-            this.mode = ExecutorGrammar.Mode.DECODE;
+        else if(mode.equalsIgnoreCase(Mode.DECODE.GetTypeMode())){
+            this.mode = Mode.DECODE;
         }
         else{
             return RC.RC_EXECUTOR_CONFIG_SEMANTIC_ERROR;

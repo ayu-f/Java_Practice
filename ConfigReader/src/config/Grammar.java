@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 public abstract class Grammar {
     final static String separator = "=";
-    public final ArrayList<String>  grammarList = new ArrayList<>();
+    protected final ArrayList<String>  grammarList = new ArrayList<>();
 
     protected abstract void setGrammar();
 

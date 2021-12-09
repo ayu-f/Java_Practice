@@ -2,7 +2,10 @@ import com.java_polytech.pipeline_interfaces.*;
 import config.*;
 
 import java.io.*;
+import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 class Manager implements IConfigurable {
     private class ManagerGrammar extends Grammar {
@@ -19,14 +22,19 @@ class Manager implements IConfigurable {
 
         @Override
         protected void setGrammar() {
-            this.grammarList.addAll(List.of(inputFile, outputFile, readerClassName, writerClassName,
+            this.grammarList.addAll(Arrays.asList(inputFile, outputFile, readerClassName, writerClassName,
                     executorClassName, rConfigFile, wConfigFile, eConfigFile));
         }
+    }
+
+    Manager(Logger logger){
+        this.logger = logger;
     }
 
     PipelineParams plParams;
     InputStream inputStream;
     OutputStream outputStream;
+    Logger logger;
 
     IReader reader;
     IWriter writer;
@@ -105,6 +113,7 @@ class Manager implements IConfigurable {
         if (!(currentRC = getClassesByName_SetConfigs()).isSuccess())
             return currentRC;
 
+        logger.log(Level.INFO, "Start to built pipeline...");
         // set consumers
         if (executors.length == 0) {
             if (!(currentRC = reader.setConsumer(writer)).isSuccess())
@@ -127,6 +136,12 @@ class Manager implements IConfigurable {
         if (!(currentRC = writer.setOutputStream(outputStream)).isSuccess())
             return currentRC;
 
+
+        StringBuilder str = new StringBuilder("Pipeline was successfully built. Order of Executors: \n");
+        for (int i = 0; i < plParams.executorClassesName.length; i++) {
+            str.append(plParams.executorClassesName[i]).append("\n");
+        }
+        logger.log(Level.INFO, str.toString());
         // start pipeline
         currentRC = reader.run();
         if (!currentRC.isSuccess())
@@ -204,18 +219,4 @@ class Manager implements IConfigurable {
 
         return RC.RC_SUCCESS;
     }
-
-    /*private RC SetConfigsToClasses() {
-        RC rc;
-        if (!(rc = reader.setConfig(plParams.rConfigFile)).isSuccess())
-            return rc;
-
-        if (!(rc = writer.setConfig(plParams.wConfigFile)).isSuccess())
-            return rc;
-
-        if (!(rc = executor.setConfig(plParams.eConfigFile)).isSuccess())
-            return rc;
-
-        return RC.RC_SUCCESS;
-    }*/
 }

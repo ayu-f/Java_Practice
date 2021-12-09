@@ -8,6 +8,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -28,7 +29,7 @@ public class Writer implements IWriter {
         static final String bufferSize = "buffer_size";
         @Override
         protected void setGrammar() {
-            this.grammarList.addAll(List.of(bufferSize));
+            this.grammarList.addAll(Arrays.asList(bufferSize));
         }
     }
 

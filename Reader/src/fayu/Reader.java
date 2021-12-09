@@ -9,6 +9,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 public class Reader implements IReader {
@@ -26,7 +27,7 @@ public class Reader implements IReader {
 
         @Override
         protected void setGrammar() {
-            this.grammarList.addAll(List.of(bufferSize));
+            this.grammarList.addAll(Arrays.asList(bufferSize));
         }
     }
 
@@ -117,18 +118,14 @@ public class Reader implements IReader {
     @Override
     public IMediator getMediator(TYPE type) {
         switch (type){
-            case BYTE_ARRAY -> {
+            case BYTE_ARRAY:
                 return new ByteMediator();
-            }
-            case CHAR_ARRAY -> {
+            case CHAR_ARRAY:
                 return new CharMediator();
-            }
-            case INT_ARRAY -> {
+            case INT_ARRAY:
                 return new IntMediator();
-            }
-            default -> {
+            default:
                 return null;
-            }
         }
     }
 
